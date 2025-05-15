@@ -4,8 +4,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define MAX_PROCESSES 256
+#define PIPE_PATH "/tmp/sysmon_pipe"
 
 typedef struct {
     int pid;
@@ -80,6 +83,29 @@ float get_memory_usage() {
     return (float)used / total * 100;
 }
 
+void write_usage_to_pipe(float cpu, float mem) {
+    FILE *fp = fopen("/proc/loadavg", "r");
+    float load1 = 0.0;
+    if (fp) {
+        fscanf(fp, "%f", &load1);
+        fclose(fp);
+    }
+
+    int fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+    if (fd != -1) {
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer), "%.2f %.2f %.2f %d\n", cpu, mem, load1, proc_count);
+        write(fd, buffer, strlen(buffer));
+        close(fd);
+    }
+}
+void banner() {
+    attron(COLOR_PAIR(2) | A_BOLD);
+    mvprintw(0, 0, "System Monitor - Press [q] to Quit | [/] Search | [↑/↓] Scroll");
+    attroff(COLOR_PAIR(2) | A_BOLD);
+}
+
+
 void draw_bar(int row, const char *label, float percent) {
     attron(COLOR_PAIR(6) | A_BOLD);
     mvprintw(row, 0, "%s", label);
@@ -106,11 +132,23 @@ void head() {
 }
 
 void process_line(int row, int pid, const char* user, int nice, int pri, float cpu, float mem, const char* command, int alt) {
+    char display_cmd[64];  // max 50 chars + room for ellipsis + null-terminator
+    int cmd_len = strlen(command);
+
+    if (cmd_len > 50) {
+        // Show last 47 characters with ellipsis
+        snprintf(display_cmd, sizeof(display_cmd), "...%s", command + cmd_len - 47);
+    } else {
+        snprintf(display_cmd, sizeof(display_cmd), "%s", command);
+    }
+
     if (alt) attron(COLOR_PAIR(7));
     mvprintw(row, 0, "%5d  %-10s %2d %3d  %5.1f%% %5.1f%%  %-.*s",
-             pid, user, nice, pri, cpu, mem, COLS - 35, command);
+             pid, user, nice, pri, cpu, mem, COLS - 35, display_cmd);
     if (alt) attroff(COLOR_PAIR(7));
 }
+
+
 
 void fetch_processes() {
     proc_count = 0;
@@ -172,6 +210,8 @@ void footer() {
 }
 
 int main() {
+    mkfifo(PIPE_PATH, 0666);
+
     initscr();
     if (!has_colors()) {
         endwin();
@@ -183,10 +223,10 @@ int main() {
     noecho();
     cbreak();
     curs_set(0);
-    halfdelay(1); // Wait up to 0.1 seconds for input
+    halfdelay(1);
     init_colors();
 
-    struct timespec delay = {.tv_sec = 0, .tv_nsec = 250 * 1000000}; // 250 ms
+    struct timespec delay = {.tv_sec = 0, .tv_nsec = 250 * 1000000};
 
     while (1) {
         int ch = getch();
@@ -198,7 +238,7 @@ int main() {
             echo();
             curs_set(1);
             nocbreak();
-            timeout(-1); // Blocking input for search
+            timeout(-1);
             mvprintw(LINES - 2, 2, "Search: ");
             getnstr(search_term, sizeof(search_term) - 1);
             noecho();
@@ -209,15 +249,16 @@ int main() {
         } else if (ch == KEY_DOWN) {
             int max_scroll = matched_proc_count - (LINES - 7);
             if (scroll_offset < max_scroll) scroll_offset++;
-            flushinp(); // Clear repeat buffer
+            flushinp();
         } else if (ch == KEY_UP && scroll_offset > 0) {
             scroll_offset--;
-            flushinp(); // Clear repeat buffer
+            flushinp();
         }
 
         clear();
         float cpu = get_cpu_usage();
         float mem = get_memory_usage();
+        write_usage_to_pipe(cpu, mem);
 
         draw_bar(0, "CPU Usage", cpu);
         draw_bar(1, "RAM Usage", mem);
@@ -230,6 +271,7 @@ int main() {
         nanosleep(&delay, NULL);
     }
 
+    unlink(PIPE_PATH);
     endwin();
     return 0;
 }
