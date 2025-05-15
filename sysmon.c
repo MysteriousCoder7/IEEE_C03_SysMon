@@ -183,29 +183,36 @@ int main() {
     noecho();
     cbreak();
     curs_set(0);
-    nodelay(stdscr, TRUE);
+    halfdelay(1); // Wait up to 0.1 seconds for input
     init_colors();
 
     struct timespec delay = {.tv_sec = 0, .tv_nsec = 250 * 1000000}; // 250 ms
 
     while (1) {
         int ch = getch();
-        if (ch == 'q') break;
-        else if (ch == '/') {
+        if (ch == ERR) {
+            // No input
+        } else if (ch == 'q') {
+            break;
+        } else if (ch == '/') {
             echo();
             curs_set(1);
-            nodelay(stdscr, FALSE);
+            nocbreak();
+            timeout(-1); // Blocking input for search
             mvprintw(LINES - 2, 2, "Search: ");
             getnstr(search_term, sizeof(search_term) - 1);
             noecho();
             curs_set(0);
-            nodelay(stdscr, TRUE);
+            cbreak();
+            halfdelay(1);
             scroll_offset = 0;
         } else if (ch == KEY_DOWN) {
             int max_scroll = matched_proc_count - (LINES - 7);
             if (scroll_offset < max_scroll) scroll_offset++;
+            flushinp(); // Clear repeat buffer
         } else if (ch == KEY_UP && scroll_offset > 0) {
             scroll_offset--;
+            flushinp(); // Clear repeat buffer
         }
 
         clear();
