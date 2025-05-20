@@ -6,7 +6,7 @@ import time
 
 PIPE_PATH = '/tmp/sysmon_pipe'
 
-# Ensure the named pipe exists
+
 if not os.path.exists(PIPE_PATH):
     os.mkfifo(PIPE_PATH)
 
@@ -15,25 +15,22 @@ cpu_data = deque([0] * 50, maxlen=50)
 mem_data = deque([0] * 50, maxlen=50)
 load_data = deque([0] * 50, maxlen=50)
 
-proc_count = 0  # From pipe
+proc_count = 0  
 start_time = time.time()
 
-# Setup plot
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
 
 line1, = ax1.plot(cpu_data, label='CPU %', color='blue')
 line2, = ax2.plot(mem_data, label='Memory %', color='green')
-
-# Ensure memory line is visible even at 100%
 ax1.set_ylim(0, 110)
 ax2.set_ylim(0, 110)
 
-# Axis labels
+
 ax1.set_ylabel("CPU Usage (%)")
 ax2.set_ylabel("Memory Usage (%)")
 ax2.set_xlabel("Time (samples)")
 
-# Add grid and legend
+
 for ax in (ax1, ax2):
     ax.grid(True)
     ax.legend(loc="upper right")
@@ -72,7 +69,6 @@ def update(frame):
     uptime_str = get_system_uptime()
     total_proc = get_total_processes()
 
-    # Update title with load, pipe process count, total process count, and uptime
     ax1.set_title(
         f"CPU Usage  |  Load Avg: {load_data[-1]:.2f}  |  From Pipe: {proc_count} procs  |  Total: {total_proc} procs  |  Uptime: {uptime_str}"
     )

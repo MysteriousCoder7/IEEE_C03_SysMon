@@ -132,11 +132,11 @@ void head() {
 }
 
 void process_line(int row, int pid, const char* user, int nice, int pri, float cpu, float mem, const char* command, int alt) {
-    char display_cmd[64];  // max 50 chars + room for ellipsis + null-terminator
+    char display_cmd[64];  
     int cmd_len = strlen(command);
 
     if (cmd_len > 50) {
-        // Show last 47 characters with ellipsis
+        
         snprintf(display_cmd, sizeof(display_cmd), "...%s", command + cmd_len - 47);
     } else {
         snprintf(display_cmd, sizeof(display_cmd), "%s", command);
