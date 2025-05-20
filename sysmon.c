@@ -65,23 +65,31 @@ float get_cpu_usage() {
 
 float get_memory_usage() {
     FILE *fp = fopen("/proc/meminfo", "r");
-    if (!fp) return 0;
-
-    char label[32];
-    long value;
-    long total = 0, free = 0, buffers = 0, cached = 0;
-
-    while (fscanf(fp, "%31s %ld", label, &value) == 2) {
-        if (strcmp(label, "MemTotal:") == 0) total = value;
-        else if (strcmp(label, "MemFree:") == 0) free = value;
-        else if (strcmp(label, "Buffers:") == 0) buffers = value;
-        else if (strcmp(label, "Cached:") == 0) cached = value;
+    if (!fp) {
+        perror("Failed to open /proc/meminfo");
+        return 0;
     }
+
+    char line[256];
+    long total = 0, available = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (sscanf(line, "MemTotal: %ld kB", &total) == 1) continue;
+        if (sscanf(line, "MemAvailable: %ld kB", &available) == 1) continue;
+        if (total && available) break;
+    }
+
     fclose(fp);
 
-    long used = total - free - buffers - cached;
-    return (float)used / total * 100;
+    if (total == 0) return 0;
+
+    long used = total - available;
+    float percent = (float)used / total * 100;
+
+    return percent;
 }
+
+
 
 void write_usage_to_pipe(float cpu, float mem) {
     FILE *fp = fopen("/proc/loadavg", "r");
