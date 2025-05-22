@@ -63,7 +63,9 @@ Conclusions
 This minimal system monitor validates a modular approach to real‑time resource tracking: a performant C daemon streams raw metrics, and a Python client offers rich graphical insight. The architecture fosters easy extension—future work may include network traffic charts, historical logging, or a web‑based interface. Overall, the project underscores the core principles of low‑level metric gathering, inter‑process communication via FIFOs, and dynamic visualization.
 
 Github : https://github.com/MysteriousCoder7/IEEE_C03_SysMon
+
 Team
+
 Mentors
 
     Saksham Kumar Singh
